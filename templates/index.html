@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 Agent Battle Simulator - WebApp Edition</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen active">
+            <div class="title-box">
+                <h1>🤖 AGENT BATTLE SIMULATOR</h1>
+                <p class="subtitle">Absurde Kämpfe. Maximaler Spaß. Null Sinn.</p>
+            </div>
+            
+            <div class="agent-setup">
+                <div class="agent-input">
+                    <label for="agent1-name">🔵 Agent 1 Name:</label>
+                    <input type="text" id="agent1-name" value="Agent Alpha" maxlength="20">
+                </div>
+                
+                <div class="vs-divider">VS</div>
+                
+                <div class="agent-input">
+                    <label for="agent2-name">🔴 Agent 2 Name (AI):</label>
+                    <input type="text" id="agent2-name" value="Agent Beta" maxlength="20">
+                </div>
+            </div>
+            
+            <button id="start-battle-btn" class="btn btn-primary">⚔️ KAMPF STARTEN</button>
+            
+            <div class="info-box">
+                <h3>📜 Spielregeln:</h3>
+                <ul>
+                    <li>Wähle jede Runde eine Aktion (1-8)</li>
+                    <li>Jede Aktion kostet Stamina</li>
+                    <li>Reduziere die HP des Gegners auf 0</li>
+                    <li>Nutze Buffs & Debuffs strategisch!</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Battle Screen -->
+        <div id="battle-screen" class="screen">
+            <div class="battle-header">
+                <h2>⚔️ RUNDE <span id="round-number">1</span></h2>
+            </div>
+            
+            <!-- Agent Stats -->
+            <div class="agents-container">
+                <!-- Agent 1 -->
+                <div class="agent-card agent1">
+                    <h3 id="agent1-name-display">Agent Alpha</h3>
+                    <div class="level">Level <span id="agent1-level">1</span></div>
+                    
+                    <div class="stat-bar">
+                        <div class="stat-label">HP</div>
+                        <div class="bar hp-bar">
+                            <div id="agent1-hp-fill" class="bar-fill" style="width: 100%"></div>
+                            <span id="agent1-hp-text" class="bar-text">100/100</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-bar">
+                        <div class="stat-label">Stamina</div>
+                        <div class="bar stamina-bar">
+                            <div id="agent1-stamina-fill" class="bar-fill" style="width: 100%"></div>
+                            <span id="agent1-stamina-text" class="bar-text">100/100</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat">ATK: <span id="agent1-attack">10</span></div>
+                        <div class="stat">DEF: <span id="agent1-defense">10</span></div>
+                    </div>
+                    
+                    <div id="agent1-effects" class="effects"></div>
+                </div>
+                
+                <!-- VS Divider -->
+                <div class="vs-battle">VS</div>
+                
+                <!-- Agent 2 -->
+                <div class="agent-card agent2">
+                    <h3 id="agent2-name-display">Agent Beta</h3>
+                    <div class="level">Level <span id="agent2-level">1</span></div>
+                    
+                    <div class="stat-bar">
+                        <div class="stat-label">HP</div>
+                        <div class="bar hp-bar">
+                            <div id="agent2-hp-fill" class="bar-fill" style="width: 100%"></div>
+                            <span id="agent2-hp-text" class="bar-text">100/100</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-bar">
+                        <div class="stat-label">Stamina</div>
+                        <div class="bar stamina-bar">
+                            <div id="agent2-stamina-fill" class="bar-fill" style="width: 100%"></div>
+                            <span id="agent2-stamina-text" class="bar-text">100/100</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat">ATK: <span id="agent2-attack">10</span></div>
+                        <div class="stat">DEF: <span id="agent2-defense">10</span></div>
+                    </div>
+                    
+                    <div id="agent2-effects" class="effects"></div>
+                </div>
+            </div>
+            
+            <!-- Battle Log -->
+            <div class="battle-log-container">
+                <h3>📜 Kampf-Kommentar:</h3>
+                <div id="battle-log" class="battle-log"></div>
+            </div>
+            
+            <!-- Action Selection -->
+            <div class="actions-container">
+                <h3>🎯 Wähle deine Aktion:</h3>
+                <div id="actions-grid" class="actions-grid">
+                    <!-- Actions will be loaded dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Victory Screen -->
+        <div id="victory-screen" class="screen">
+            <div class="victory-box">
+                <h1 id="victory-title">🏆 SIEG!</h1>
+                <div id="victory-message" class="victory-message"></div>
+                
+                <div class="victory-stats">
+                    <h3>📊 Kampf-Statistiken:</h3>
+                    <div id="victory-stats-content"></div>
+                </div>
+                
+                <button id="new-battle-btn" class="btn btn-primary">🔄 NEUER KAMPF</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+</body>
+</html>
