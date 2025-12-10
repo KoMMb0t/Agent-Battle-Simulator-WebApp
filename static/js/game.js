@@ -216,19 +216,31 @@ class GameController {
         if (this.isProcessing) return;
         
         // Check if battle is over
-        if (!this.agent1.hp || !this.agent2.hp || this.agent1.hp <= 0 || this.agent2.hp <= 0) {
+        if (!this.agent1 || !this.agent2 || this.agent1.hp <= 0 || this.agent2.hp <= 0) {
             return;
         }
         
         this.isProcessing = true;
         
         try {
+            // Get AI action
+            const aiResponse = await fetch('/api/battle/ai-action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    battle_id: this.battleId
+                })
+            });
+            const aiData = await aiResponse.json();
+            
+            // Execute turn with both actions
             const response = await fetch('/api/battle/turn', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     battle_id: this.battleId,
-                    action_id: actionId
+                    action1_id: actionId,
+                    action2_id: aiData.action_id
                 })
             });
             
