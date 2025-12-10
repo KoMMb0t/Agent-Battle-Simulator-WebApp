@@ -1,4 +1,4 @@
-// Agent Battle Simulator - Game Logic
+// Agent Battle Simulator - Game Controller
 // Frontend JavaScript
 
 class GameController {
@@ -7,19 +7,99 @@ class GameController {
         this.agent1 = null;
         this.agent2 = null;
         this.actions = [];
+        this.bots = [];
+        this.selectedBot1 = null;
+        this.selectedBot2 = null;
         this.currentRound = 0;
         this.isProcessing = false;
         
         this.init();
     }
     
-    init() {
-        // Load actions
-        this.loadActions();
+    async init() {
+        // Load bots and actions
+        await this.loadBots();
+        await this.loadActions();
         
         // Event listeners
-        document.getElementById('start-battle-btn').addEventListener('click', () => this.startBattle());
+        document.getElementById('confirm-selection-btn').addEventListener('click', () => this.confirmSelection());
         document.getElementById('new-battle-btn').addEventListener('click', () => this.resetGame());
+    }
+    
+    async loadBots() {
+        try {
+            const response = await fetch('/api/bots');
+            this.bots = await response.json();
+            console.log('Bots loaded:', this.bots.length);
+            this.renderBotSelection();
+        } catch (error) {
+            console.error('Error loading bots:', error);
+        }
+    }
+    
+    renderBotSelection() {
+        const agent1Grid = document.getElementById('agent1-types');
+        const agent2Grid = document.getElementById('agent2-types');
+        
+        agent1Grid.innerHTML = '';
+        agent2Grid.innerHTML = '';
+        
+        this.bots.forEach(bot => {
+            // Agent 1 bot card
+            const card1 = this.createBotCard(bot, 1);
+            agent1Grid.appendChild(card1);
+            
+            // Agent 2 bot card
+            const card2 = this.createBotCard(bot, 2);
+            agent2Grid.appendChild(card2);
+        });
+        
+        // Select default bots
+        this.selectBot('mende', 1);
+        this.selectBot('regulus', 2);
+    }
+    
+    createBotCard(bot, agentNum) {
+        const card = document.createElement('div');
+        card.className = 'bot-card';
+        card.dataset.botId = bot.id;
+        card.dataset.agent = agentNum;
+        
+        card.innerHTML = `
+            <div class="bot-avatar" style="font-size: 3rem;">${bot.avatar}</div>
+            <div class="bot-name">${bot.name}</div>
+            <div class="bot-title">${bot.title}</div>
+            <div class="bot-stats">
+                <div>HP: +${bot.stats.hp_bonus}</div>
+                <div>ATK: +${bot.stats.attack_bonus}</div>
+                <div>DEF: +${bot.stats.defense_bonus}</div>
+                <div>STA: +${bot.stats.stamina_bonus}</div>
+            </div>
+            <div class="bot-special">${bot.special}</div>
+        `;
+        
+        card.style.borderColor = bot.color;
+        
+        card.addEventListener('click', () => this.selectBot(bot.id, agentNum));
+        
+        return card;
+    }
+    
+    selectBot(botId, agentNum) {
+        // Remove previous selection
+        const grid = document.getElementById(`agent${agentNum}-types`);
+        grid.querySelectorAll('.bot-card').forEach(c => c.classList.remove('selected'));
+        
+        // Select new bot
+        const card = grid.querySelector(`[data-bot-id="${botId}"]`);
+        if (card) {
+            card.classList.add('selected');
+            if (agentNum === 1) {
+                this.selectedBot1 = botId;
+            } else {
+                this.selectedBot2 = botId;
+            }
+        }
     }
     
     async loadActions() {
@@ -29,6 +109,44 @@ class GameController {
             console.log('Actions loaded:', this.actions);
         } catch (error) {
             console.error('Error loading actions:', error);
+        }
+    }
+    
+    async confirmSelection() {
+        if (!this.selectedBot1 || !this.selectedBot2) {
+            alert('Bitte wähle Bots für beide Agents!');
+            return;
+        }
+        
+        const agent1Name = document.getElementById('agent1-name-input').value.trim() || 'Agent Alpha';
+        const agent2Name = document.getElementById('agent2-name-input').value.trim() || 'Agent Beta';
+        
+        try {
+            const response = await fetch('/api/battle/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    agent1_name: agent1Name,
+                    agent2_name: agent2Name,
+                    agent1_bot: this.selectedBot1,
+                    agent2_bot: this.selectedBot2
+                })
+            });
+            
+            const data = await response.json();
+            this.battleId = data.battle_id;
+            this.agent1 = data.agent1;
+            this.agent2 = data.agent2;
+            this.currentRound = 1;
+            
+            // Switch to battle screen
+            this.showScreen('battle-screen');
+            this.updateBattleUI();
+            this.renderActionButtons();
+            
+        } catch (error) {
+            console.error('Error starting battle:', error);
+            alert('Fehler beim Starten des Kampfes!');
         }
     }
     
@@ -42,7 +160,9 @@ class GameController {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     agent1_name: agent1Name,
-                    agent2_name: agent2Name
+                    agent2_name: agent2Name,
+                    agent1_bot: 'mende',
+                    agent2_bot: 'regulus'
                 })
             });
             
@@ -50,13 +170,12 @@ class GameController {
             this.battleId = data.battle_id;
             this.agent1 = data.agent1;
             this.agent2 = data.agent2;
-            this.currentRound = 0;
+            this.currentRound = 1;
             
-            // Update UI
+            // Switch to battle screen
             this.showScreen('battle-screen');
-            this.updateAgentDisplay();
-            this.renderActions();
-            this.clearBattleLog();
+            this.updateBattleUI();
+            this.renderActionButtons();
             
         } catch (error) {
             console.error('Error starting battle:', error);
@@ -64,229 +183,150 @@ class GameController {
         }
     }
     
-    renderActions() {
-        const grid = document.getElementById('actions-grid');
-        grid.innerHTML = '';
+    renderActionButtons() {
+        const container = document.getElementById('action-buttons');
+        container.innerHTML = '';
         
-        this.actions.forEach(action => {
-            const btn = document.createElement('button');
-            btn.className = 'action-btn';
-            btn.dataset.actionId = action.id;
-            
-            // Check if enough stamina
-            if (this.agent1.stamina < action.stamina_cost) {
-                btn.classList.add('disabled');
-            }
-            
-            btn.innerHTML = `
-                <div class="action-name">${action.name}</div>
-                <div class="action-desc">${action.description}</div>
-                <div class="action-cost">⚡ Stamina: ${action.stamina_cost}</div>
-                <div class="action-damage">💥 Schaden: ${action.damage_range[0]}-${action.damage_range[1]}</div>
+        this.actions.forEach((action, index) => {
+            const button = document.createElement('button');
+            button.className = 'action-btn';
+            button.innerHTML = `
+                <div class="action-number">${index + 1}</div>
+                <div class="action-name">${action.emoji} ${action.name}</div>
+                <div class="action-details">
+                    <span class="stamina-cost">⚡ ${action.stamina_cost}</span>
+                    <span class="damage-range">💥 ${action.damage_min}-${action.damage_max}</span>
+                </div>
             `;
             
-            btn.addEventListener('click', () => this.selectAction(action.id));
-            grid.appendChild(btn);
+            button.addEventListener('click', () => this.executeAction(action.id));
+            container.appendChild(button);
         });
     }
     
-    async selectAction(actionId) {
+    async executeAction(actionId) {
         if (this.isProcessing) return;
         
-        // Check if action is available
-        const action = this.actions.find(a => a.id === actionId);
-        if (this.agent1.stamina < action.stamina_cost) {
-            this.addLogEntry('system', '⚠️ Nicht genug Stamina!', 'log-warning');
+        // Check if battle is over
+        if (!this.agent1.hp || !this.agent2.hp || this.agent1.hp <= 0 || this.agent2.hp <= 0) {
             return;
         }
         
         this.isProcessing = true;
         
         try {
-            // Get AI action
-            const aiResponse = await fetch('/api/battle/ai-action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ battle_id: this.battleId })
-            });
-            const aiData = await aiResponse.json();
-            
-            // Execute turn
             const response = await fetch('/api/battle/turn', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     battle_id: this.battleId,
-                    action1_id: actionId,
-                    action2_id: aiData.action_id
+                    action_id: actionId
                 })
             });
             
-            const result = await response.json();
-            this.processTurnResult(result);
+            const data = await response.json();
+            
+            // Update agents
+            this.agent1 = data.agent1;
+            this.agent2 = data.agent2;
+            this.currentRound = data.round;
+            
+            // Update UI
+            this.updateBattleUI();
+            this.addCombatLog(data.commentary);
+            
+            // Check for winner
+            if (data.winner) {
+                setTimeout(() => this.showVictoryScreen(data.winner), 1500);
+            }
             
         } catch (error) {
-            console.error('Error executing turn:', error);
+            console.error('Error executing action:', error);
             alert('Fehler beim Ausführen der Aktion!');
         } finally {
             this.isProcessing = false;
         }
     }
     
-    processTurnResult(result) {
-        this.currentRound = result.round;
-        this.agent1 = result.agent1_state;
-        this.agent2 = result.agent2_state;
-        
-        // Update round number
+    updateBattleUI() {
+        // Update round
         document.getElementById('round-number').textContent = this.currentRound;
         
-        // Process actions
-        result.actions.forEach((actionResult, index) => {
-            setTimeout(() => {
-                this.displayAction(actionResult);
-            }, index * 1000);
-        });
+        // Update Agent 1
+        this.updateAgentDisplay(this.agent1, 1);
         
-        // Update display after animations
-        setTimeout(() => {
-            this.updateAgentDisplay();
-            this.renderActions();
-            
-            // Check if battle is over
-            if (result.battle_over) {
-                setTimeout(() => {
-                    this.showVictory(result.winner);
-                }, 1500);
-            }
-        }, result.actions.length * 1000 + 500);
+        // Update Agent 2
+        this.updateAgentDisplay(this.agent2, 2);
     }
     
-    displayAction(actionResult) {
-        const agentClass = actionResult.attacker === this.agent1.name ? 'agent1' : 'agent2';
+    updateAgentDisplay(agent, num) {
+        // Name & Level
+        document.getElementById(`agent${num}-name-display`).textContent = agent.name;
+        document.getElementById(`agent${num}-level`).textContent = agent.level;
         
-        let html = `
-            <div class="log-action">${actionResult.attacker}: ${actionResult.action}</div>
-            <div class="log-damage">💥 Schaden: ${actionResult.damage}</div>
-        `;
-        
-        if (actionResult.effects && actionResult.effects.length > 0) {
-            actionResult.effects.forEach(effect => {
-                html += `<div class="log-effect">${effect}</div>`;
-            });
+        // Avatar
+        const avatar = document.getElementById(`agent${num}-avatar`);
+        if (avatar) {
+            avatar.textContent = agent.avatar || '🤖';
+            avatar.style.color = agent.color || '#00ff00';
         }
         
-        html += `<div class="log-comment">${actionResult.comment}</div>`;
+        // HP
+        const hpPercent = (agent.hp / agent.max_hp) * 100;
+        document.getElementById(`agent${num}-hp-fill`).style.width = `${hpPercent}%`;
+        document.getElementById(`agent${num}-hp-text`).textContent = `${agent.hp}/${agent.max_hp}`;
         
-        this.addLogEntry(agentClass, html);
+        // Stamina
+        const staminaPercent = (agent.stamina / agent.max_stamina) * 100;
+        document.getElementById(`agent${num}-stamina-fill`).style.width = `${staminaPercent}%`;
+        document.getElementById(`agent${num}-stamina-text`).textContent = `${agent.stamina}/${agent.max_stamina}`;
+        
+        // XP
+        const xpPercent = agent.xp_percentage || 0;
+        document.getElementById(`agent${num}-xp-fill`).style.width = `${xpPercent}%`;
+        document.getElementById(`agent${num}-xp-text`).textContent = `${agent.xp}/${agent.xp_to_next_level}`;
+        
+        // Stats
+        document.getElementById(`agent${num}-attack`).textContent = agent.attack;
+        document.getElementById(`agent${num}-defense`).textContent = agent.defense;
+        
+        // Effects (Buffs/Debuffs)
+        this.updateEffects(agent, num);
     }
     
-    addLogEntry(agentClass, content, extraClass = '') {
-        const log = document.getElementById('battle-log');
-        const entry = document.createElement('div');
-        entry.className = `log-entry ${agentClass} ${extraClass}`;
-        entry.innerHTML = content;
-        log.appendChild(entry);
-        
-        // Auto-scroll to bottom
-        log.scrollTop = log.scrollHeight;
-    }
-    
-    clearBattleLog() {
-        document.getElementById('battle-log').innerHTML = '';
-        this.addLogEntry('system', '⚔️ Der Kampf beginnt!', 'log-system');
-    }
-    
-    updateAgentDisplay() {
-        // Agent 1
-        document.getElementById('agent1-name-display').textContent = this.agent1.name;
-        document.getElementById('agent1-level').textContent = this.agent1.level;
-        document.getElementById('agent1-attack').textContent = this.agent1.attack;
-        document.getElementById('agent1-defense').textContent = this.agent1.defense;
-        
-        const hp1Percent = (this.agent1.hp / this.agent1.max_hp) * 100;
-        document.getElementById('agent1-hp-fill').style.width = hp1Percent + '%';
-        document.getElementById('agent1-hp-text').textContent = `${this.agent1.hp}/${this.agent1.max_hp}`;
-        
-        const stamina1Percent = (this.agent1.stamina / this.agent1.max_stamina) * 100;
-        document.getElementById('agent1-stamina-fill').style.width = stamina1Percent + '%';
-        document.getElementById('agent1-stamina-text').textContent = `${this.agent1.stamina}/${this.agent1.max_stamina}`;
-        
-        this.updateEffects('agent1', this.agent1);
-        
-        // Agent 2
-        document.getElementById('agent2-name-display').textContent = this.agent2.name;
-        document.getElementById('agent2-level').textContent = this.agent2.level;
-        document.getElementById('agent2-attack').textContent = this.agent2.attack;
-        document.getElementById('agent2-defense').textContent = this.agent2.defense;
-        
-        const hp2Percent = (this.agent2.hp / this.agent2.max_hp) * 100;
-        document.getElementById('agent2-hp-fill').style.width = hp2Percent + '%';
-        document.getElementById('agent2-hp-text').textContent = `${this.agent2.hp}/${this.agent2.max_hp}`;
-        
-        const stamina2Percent = (this.agent2.stamina / this.agent2.max_stamina) * 100;
-        document.getElementById('agent2-stamina-fill').style.width = stamina2Percent + '%';
-        document.getElementById('agent2-stamina-text').textContent = `${this.agent2.stamina}/${this.agent2.max_stamina}`;
-        
-        this.updateEffects('agent2', this.agent2);
-    }
-    
-    updateEffects(agentId, agentData) {
-        const container = document.getElementById(`${agentId}-effects`);
+    updateEffects(agent, num) {
+        const container = document.getElementById(`agent${num}-effects`);
         container.innerHTML = '';
         
         // Buffs
-        if (agentData.buffs && agentData.buffs.length > 0) {
-            agentData.buffs.forEach(buff => {
-                const badge = document.createElement('span');
-                badge.className = 'effect-badge effect-buff';
-                badge.textContent = `✨ ${buff.name}`;
-                container.appendChild(badge);
-            });
-        }
+        agent.buffs.forEach(buff => {
+            const badge = document.createElement('span');
+            badge.className = 'effect-badge buff';
+            badge.textContent = `✨ ${buff.name}`;
+            container.appendChild(badge);
+        });
         
         // Debuffs
-        if (agentData.debuffs && agentData.debuffs.length > 0) {
-            agentData.debuffs.forEach(debuff => {
-                const badge = document.createElement('span');
-                badge.className = 'effect-badge effect-debuff';
-                badge.textContent = `💀 ${debuff.name}`;
-                container.appendChild(badge);
-            });
-        }
+        agent.debuffs.forEach(debuff => {
+            const badge = document.createElement('span');
+            badge.className = 'effect-badge debuff';
+            badge.textContent = `💀 ${debuff.name}`;
+            container.appendChild(badge);
+        });
     }
     
-    showVictory(winnerName) {
-        const title = document.getElementById('victory-title');
-        const message = document.getElementById('victory-message');
-        const statsContent = document.getElementById('victory-stats-content');
-        
-        if (winnerName === this.agent1.name) {
-            title.textContent = '🏆 SIEG!';
-            title.style.color = '#00ff00';
-            message.textContent = `${winnerName} hat gewonnen!`;
-        } else {
-            title.textContent = '💀 NIEDERLAGE!';
-            title.style.color = '#ff0000';
-            message.textContent = `${winnerName} hat gewonnen!`;
-        }
-        
-        statsContent.innerHTML = `
-            <div class="stat-line">📊 Runden: ${this.currentRound}</div>
-            <div class="stat-line">🔵 ${this.agent1.name}: ${this.agent1.hp} HP übrig</div>
-            <div class="stat-line">🔴 ${this.agent2.name}: ${this.agent2.hp} HP übrig</div>
-            <div class="stat-line">⭐ XP gewonnen: ${this.agent1.level * 50}</div>
-        `;
-        
+    addCombatLog(commentary) {
+        const log = document.getElementById('combat-log');
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.textContent = `⚔️ ${commentary}`;
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+    }
+    
+    showVictoryScreen(winner) {
+        document.getElementById('winner-name').textContent = winner;
         this.showScreen('victory-screen');
-    }
-    
-    resetGame() {
-        this.battleId = null;
-        this.agent1 = null;
-        this.agent2 = null;
-        this.currentRound = 0;
-        this.showScreen('start-screen');
     }
     
     showScreen(screenId) {
@@ -295,9 +335,18 @@ class GameController {
         });
         document.getElementById(screenId).classList.add('active');
     }
+    
+    resetGame() {
+        this.battleId = null;
+        this.agent1 = null;
+        this.agent2 = null;
+        this.currentRound = 0;
+        document.getElementById('combat-log').innerHTML = '';
+        this.showScreen('agent-selection-screen');
+    }
 }
 
-// Initialize game when page loads
+// Initialize game when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.game = new GameController();
 });

@@ -8,8 +8,34 @@
 </head>
 <body>
     <div class="container">
-        <!-- Start Screen -->
-        <div id="start-screen" class="screen active">
+        <!-- Agent Selection Screen -->
+        <div id="agent-selection-screen" class="screen active">
+            <div class="title-box">
+                <h1>🎮 WÄHLE DEINE AGENTS</h1>
+                <p class="subtitle">Jeder Agent hat einzigartige Fähigkeiten und Stats</p>
+            </div>
+            
+            <div class="agent-selection-container">
+                <div class="selection-side">
+                    <h3>🔵 Agent 1 (Du)</h3>
+                    <input type="text" id="agent1-name-input" value="Agent Alpha" maxlength="20" placeholder="Agent Name">
+                    <div id="agent1-types" class="agent-types-grid"></div>
+                </div>
+                
+                <div class="vs-divider-large">VS</div>
+                
+                <div class="selection-side">
+                    <h3>🔴 Agent 2 (AI)</h3>
+                    <input type="text" id="agent2-name-input" value="Agent Beta" maxlength="20" placeholder="Agent Name">
+                    <div id="agent2-types" class="agent-types-grid"></div>
+                </div>
+            </div>
+            
+            <button id="confirm-selection-btn" class="btn btn-primary">⚔️ KAMPF STARTEN</button>
+        </div>
+        
+        <!-- Start Screen (Legacy - wird durch Agent Selection ersetzt) -->
+        <div id="start-screen" class="screen">
             <div class="title-box">
                 <h1>🤖 AGENT BATTLE SIMULATOR</h1>
                 <p class="subtitle">Absurde Kämpfe. Maximaler Spaß. Null Sinn.</p>
@@ -52,8 +78,17 @@
             <div class="agents-container">
                 <!-- Agent 1 -->
                 <div class="agent-card agent1">
+                    <div class="agent-avatar" id="agent1-avatar">🤖</div>
                     <h3 id="agent1-name-display">Agent Alpha</h3>
                     <div class="level">Level <span id="agent1-level">1</span></div>
+                    
+                    <div class="stat-bar xp-bar-container">
+                        <div class="stat-label">XP</div>
+                        <div class="bar xp-bar">
+                            <div id="agent1-xp-fill" class="bar-fill" style="width: 0%"></div>
+                            <span id="agent1-xp-text" class="bar-text">0/100</span>
+                        </div>
+                    </div>
                     
                     <div class="stat-bar">
                         <div class="stat-label">HP</div>
@@ -84,8 +119,17 @@
                 
                 <!-- Agent 2 -->
                 <div class="agent-card agent2">
+                    <div class="agent-avatar" id="agent2-avatar">🤖</div>
                     <h3 id="agent2-name-display">Agent Beta</h3>
                     <div class="level">Level <span id="agent2-level">1</span></div>
+                    
+                    <div class="stat-bar xp-bar-container">
+                        <div class="stat-label">XP</div>
+                        <div class="bar xp-bar">
+                            <div id="agent2-xp-fill" class="bar-fill" style="width: 0%"></div>
+                            <span id="agent2-xp-text" class="bar-text">0/100</span>
+                        </div>
+                    </div>
                     
                     <div class="stat-bar">
                         <div class="stat-label">HP</div>

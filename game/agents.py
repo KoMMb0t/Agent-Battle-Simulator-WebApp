@@ -7,18 +7,26 @@ import random
 from typing import Dict, List, Optional
 
 class Agent:
-    def __init__(self, name: str, agent_type: str = "balanced", level: int = 1):
+    def __init__(self, name: str, agent_type: str = "ninja", level: int = 1, agent_type_data: Dict = None):
         self.name = name
-        self.agent_type = agent_type  # "attacker" or "defender"
+        self.agent_type = agent_type  # Agent type ID
         self.level = level
+        self.agent_type_data = agent_type_data or {}
         
-        # Base stats
-        self.max_hp = 100 + (level - 1) * 20
+        # Get bonuses from agent type
+        stats_bonus = self.agent_type_data.get('stats', {})
+        hp_bonus = stats_bonus.get('hp_bonus', 0)
+        stamina_bonus = stats_bonus.get('stamina_bonus', 0)
+        attack_bonus = stats_bonus.get('attack_bonus', 0)
+        defense_bonus = stats_bonus.get('defense_bonus', 0)
+        
+        # Base stats with agent type bonuses
+        self.max_hp = 100 + (level - 1) * 20 + hp_bonus
         self.hp = self.max_hp
-        self.max_stamina = 100 + (level - 1) * 10
+        self.max_stamina = 100 + (level - 1) * 10 + stamina_bonus
         self.stamina = self.max_stamina
-        self.attack = 10 + (level - 1) * 2
-        self.defense = 10 + (level - 1) * 2
+        self.attack = 10 + (level - 1) * 2 + attack_bonus
+        self.defense = 10 + (level - 1) * 2 + defense_bonus
         
         # XP System
         self.xp = 0
@@ -124,6 +132,9 @@ class Agent:
         return {
             'name': self.name,
             'type': self.agent_type,
+            'type_name': self.agent_type_data.get('name', 'Unknown'),
+            'avatar': self.agent_type_data.get('avatar', '🤖'),
+            'color': self.agent_type_data.get('color', '#00ff00'),
             'level': self.level,
             'hp': self.hp,
             'max_hp': self.max_hp,
@@ -133,6 +144,7 @@ class Agent:
             'defense': self.defense,
             'xp': self.xp,
             'xp_to_next_level': self.xp_to_next_level,
+            'xp_percentage': int((self.xp / self.xp_to_next_level) * 100) if self.xp_to_next_level > 0 else 0,
             'buffs': self.buffs,
             'debuffs': self.debuffs,
             'wins': self.wins,

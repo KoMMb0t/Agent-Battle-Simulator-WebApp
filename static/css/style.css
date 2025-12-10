@@ -542,3 +542,181 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+
+/* Agent Selection Screen */
+.agent-selection-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 40px;
+    margin: 40px 0;
+}
+
+.selection-side {
+    flex: 1;
+    min-width: 0;
+}
+
+.selection-side h3 {
+    text-align: center;
+    font-size: 1.8em;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px currentColor;
+}
+
+.selection-side input {
+    width: 100%;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    font-size: 1.1em;
+    background: #0a0a0a;
+    color: #00ff00;
+    border: 2px solid #00ff00;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    outline: none;
+}
+
+.selection-side input:focus {
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+}
+
+.vs-divider-large {
+    font-size: 4em;
+    font-weight: bold;
+    color: #ff0000;
+    text-shadow: 0 0 20px #ff0000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+}
+
+.agent-types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    max-height: 600px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.bot-card {
+    background: rgba(0, 0, 0, 0.6);
+    border: 3px solid #00ff00;
+    border-radius: 10px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.bot-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px currentColor;
+}
+
+.bot-card.selected {
+    background: rgba(0, 255, 0, 0.2);
+    box-shadow: 0 0 30px currentColor;
+    transform: scale(1.08);
+}
+
+.bot-avatar {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+.bot-name {
+    font-size: 1.3em;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #00ff00;
+}
+
+.bot-title {
+    font-size: 0.9em;
+    color: #00cc00;
+    margin-bottom: 10px;
+    min-height: 40px;
+}
+
+.bot-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin: 10px 0;
+    font-size: 0.9em;
+    color: #00dd00;
+}
+
+.bot-special {
+    font-size: 0.8em;
+    color: #ffaa00;
+    margin-top: 10px;
+    padding: 5px;
+    background: rgba(255, 170, 0, 0.1);
+    border-radius: 5px;
+    min-height: 50px;
+}
+
+/* Agent Avatar in Battle */
+.agent-avatar {
+    font-size: 4rem;
+    text-align: center;
+    margin: 10px 0;
+    text-shadow: 0 0 10px currentColor;
+}
+
+/* XP Bar */
+.xp-bar-container {
+    margin-bottom: 10px;
+}
+
+.xp-bar {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: #ffd700;
+}
+
+.xp-bar .bar-fill {
+    background: linear-gradient(90deg, #ffd700, #ffaa00);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .agent-selection-container {
+        flex-direction: column;
+    }
+    
+    .vs-divider-large {
+        transform: rotate(90deg);
+        margin: 20px 0;
+    }
+    
+    .agent-types-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .agent-types-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+    }
+    
+    .bot-card {
+        padding: 10px;
+    }
+    
+    .bot-avatar {
+        font-size: 2rem;
+    }
+    
+    .bot-name {
+        font-size: 1em;
+    }
+    
+    .bot-title {
+        font-size: 0.8em;
+    }
+}
