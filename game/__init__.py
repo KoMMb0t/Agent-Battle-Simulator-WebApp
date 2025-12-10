@@ -13,7 +13,9 @@ __all__ = [
     'get_action', 
     'get_all_actions', 
     'Battle',
-    'get_all_battle_bots',\n    'get_battle_bot',    'get_bot_skins',
+    'get_all_battle_bots',
+    'get_battle_bot',
+    'get_bot_skins',
     'get_unlocked_skins',
     'get_current_skin'
 ]

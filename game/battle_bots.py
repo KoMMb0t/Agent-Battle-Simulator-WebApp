@@ -1,4 +1,9 @@
-"""\nAgent Battle Simulator - 21 Battle Bots\nMixed themes: Office Warriors, AI Agents, Gaming Legends\n"""\n\nBATTLE_BOTS = [
+"""
+Agent Battle Simulator - 21 Web3 Bots
+Mixed themes: Office Warriors, AI Agents, Gaming Legends
+"""
+
+BATTLE_BOTS = [
     {
         "id": "mende",
         "name": "Mende",
@@ -442,4 +447,13 @@
     }
 ]
 
-def get_battle_bot(bot_id: str):\n    """Get bot by ID"""\n    for bot in BATTLE_BOTS:\n        if bot['id'] == bot_id:\n            return bot\n    return BATTLE_BOTS[3]  # Default: Regulus\n\ndef get_all_battle_bots():\n    """Get all available bots"""\n    return BATTLE_BOTS
+def get_battle_bot(bot_id: str):
+    """Get bot by ID"""
+    for bot in BATTLE_BOTS:
+        if bot['id'] == bot_id:
+            return bot
+    return BATTLE_BOTS[3]  # Default: Regulus
+
+def get_all_battle_bots():
+    """Get all available bots"""
+    return BATTLE_BOTS
