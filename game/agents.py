@@ -6,6 +6,8 @@ Adapted for WebApp
 import random
 from typing import Dict, List, Optional
 
+from .battle_bots import get_battle_bot
+
 class Agent:
     def __init__(self, name: str, agent_type: str = "ninja", level: int = 1, agent_type_data: Dict = None):
         self.name = name
@@ -150,3 +152,30 @@ class Agent:
             'wins': self.wins,
             'losses': self.losses
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "Agent":
+        """Create an agent instance from stored state"""
+        agent_type = data.get('type', 'ninja')
+        agent_type_data = get_battle_bot(agent_type) or {}
+
+        agent = cls(
+            data.get('name', 'Agent'),
+            agent_type=agent_type,
+            level=data.get('level', 1),
+            agent_type_data=agent_type_data,
+        )
+
+        # Restore stats and progress
+        for attr in [
+            'max_hp', 'hp', 'max_stamina', 'stamina',
+            'attack', 'defense', 'xp', 'xp_to_next_level',
+            'wins', 'losses'
+        ]:
+            if attr in data:
+                setattr(agent, attr, data[attr])
+
+        agent.buffs = data.get('buffs', [])
+        agent.debuffs = data.get('debuffs', [])
+
+        return agent

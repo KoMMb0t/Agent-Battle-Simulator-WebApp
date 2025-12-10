@@ -3,18 +3,142 @@ Agent Battle Simulator - Flask WebApp
 Main application file
 """
 
-from flask import Flask, render_template, request, jsonify, session
-from flask_cors import CORS
-import secrets
+import json
 import os
-from game import Agent, get_all_actions, Battle, get_all_battle_bots, get_battle_bot, get_bot_skins, get_unlocked_skins
+import secrets
+import sqlite3
+import time
+
+from flask import Flask, jsonify, render_template, request, session
+from flask_cors import CORS
+
+from game import (
+    Agent,
+    Battle,
+    get_all_actions,
+    get_all_battle_bots,
+    get_battle_bot,
+    get_bot_skins,
+    get_unlocked_skins,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 CORS(app)
 
-# Store active battles in memory (in production, use Redis or database)
-battles = {}
+DB_PATH = os.environ.get('BATTLE_DB_PATH', 'battles.db')
+BATTLE_TTL_SECONDS = int(os.environ.get('BATTLE_TTL_SECONDS', 3600))
+
+
+def get_db_connection():
+    """Create a SQLite connection"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    """Initialize database tables if needed"""
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS battles (
+                battle_id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                updated_at REAL NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agent_stats (
+                agent_name TEXT PRIMARY KEY,
+                wins INTEGER DEFAULT 0,
+                losses INTEGER DEFAULT 0
+            )
+            """
+        )
+
+
+def cleanup_expired_battles():
+    """Remove battles older than the TTL"""
+    expiration_threshold = time.time() - BATTLE_TTL_SECONDS
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM battles WHERE updated_at < ?", (expiration_threshold,))
+
+
+def battle_to_dict(battle: Battle) -> dict:
+    """Serialize a Battle instance into a JSON-friendly dict"""
+    return {
+        'current_round': battle.current_round,
+        'agent1': battle.agent1.to_dict(),
+        'agent2': battle.agent2.to_dict(),
+        'battle_log': battle.battle_log,
+        'winner': battle.winner.to_dict() if battle.winner else None,
+    }
+
+
+def battle_from_dict(data: dict) -> Battle:
+    """Rehydrate a Battle instance from stored state"""
+    agent1 = Agent.from_dict(data['agent1'])
+    agent2 = Agent.from_dict(data['agent2'])
+
+    battle = Battle(agent1, agent2, reset_agents=False)
+    battle.current_round = data.get('current_round', 0)
+    battle.battle_log = data.get('battle_log', [])
+
+    winner_data = data.get('winner')
+    battle.winner = Agent.from_dict(winner_data) if winner_data else None
+
+    return battle
+
+
+def save_battle(battle_id: str, battle: Battle):
+    """Persist battle state"""
+    payload = json.dumps(battle_to_dict(battle))
+    with get_db_connection() as conn:
+        conn.execute(
+            "REPLACE INTO battles (battle_id, data, updated_at) VALUES (?, ?, ?)",
+            (battle_id, payload, time.time()),
+        )
+
+
+def load_battle(battle_id: str) -> Battle | None:
+    """Load battle from storage"""
+    cleanup_expired_battles()
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT data FROM battles WHERE battle_id = ?", (battle_id,)
+        ).fetchone()
+
+    if not row:
+        return None
+
+    return battle_from_dict(json.loads(row['data']))
+
+
+def remove_battle(battle_id: str):
+    """Delete battle from storage"""
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM battles WHERE battle_id = ?", (battle_id,))
+
+
+def record_agent_result(agent_name: str, won: bool):
+    """Update aggregated agent win/loss counts"""
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO agent_stats (agent_name, wins, losses)
+            VALUES (?, ?, ?)
+            ON CONFLICT(agent_name) DO UPDATE SET
+                wins = wins + excluded.wins,
+                losses = losses + excluded.losses
+            """,
+            (agent_name, 1 if won else 0, 0 if won else 1),
+        )
+
+
+init_db()
 
 @app.route('/')
 def index():
@@ -61,11 +185,11 @@ def start_battle():
     
     # Create battle
     battle = Battle(agent1, agent2)
-    
+
     # Generate battle ID
     battle_id = secrets.token_urlsafe(16)
-    battles[battle_id] = battle
-    
+    save_battle(battle_id, battle)
+
     # Store in session
     session['battle_id'] = battle_id
     
@@ -80,32 +204,41 @@ def execute_turn():
     """Execute one turn of battle"""
     data = request.json
     battle_id = data.get('battle_id') or session.get('battle_id')
-    
-    if not battle_id or battle_id not in battles:
+
+    if not battle_id:
         return jsonify({'error': 'Battle not found'}), 404
-    
-    battle = battles[battle_id]
+
+    battle = load_battle(battle_id)
+    if not battle:
+        return jsonify({'error': 'Battle not found'}), 404
     
     action1_id = data.get('action1_id', 1)
     action2_id = data.get('action2_id', 1)
     
     # Execute turn
     result = battle.execute_turn(action1_id, action2_id)
-    
+
+    # Persist updated battle
+    save_battle(battle_id, battle)
+
     # Clean up if battle is over
     if result['battle_over']:
-        # Keep battle for a while for summary
+        # Persist aggregated stats
+        if battle.winner:
+            record_agent_result(battle.agent1.name, battle.winner is battle.agent1)
+            record_agent_result(battle.agent2.name, battle.winner is battle.agent2)
+
+        # Keep battle for summary but mark timestamp via save_battle already
         pass
-    
+
     return jsonify(result)
 
 @app.route('/api/battle/summary/<battle_id>', methods=['GET'])
 def get_battle_summary(battle_id):
     """Get battle summary"""
-    if battle_id not in battles:
+    battle = load_battle(battle_id)
+    if not battle:
         return jsonify({'error': 'Battle not found'}), 404
-    
-    battle = battles[battle_id]
     return jsonify(battle.get_battle_summary())
 
 @app.route('/api/battle/ai-action', methods=['POST'])
@@ -113,11 +246,13 @@ def get_ai_action():
     """Get AI-recommended action"""
     data = request.json
     battle_id = data.get('battle_id') or session.get('battle_id')
-    
-    if not battle_id or battle_id not in battles:
+
+    if not battle_id:
         return jsonify({'error': 'Battle not found'}), 404
-    
-    battle = battles[battle_id]
+
+    battle = load_battle(battle_id)
+    if not battle:
+        return jsonify({'error': 'Battle not found'}), 404
     agent = battle.agent2  # AI is always agent2
     
     # Simple AI logic

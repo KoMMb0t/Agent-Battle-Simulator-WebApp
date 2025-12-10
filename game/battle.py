@@ -9,7 +9,7 @@ from .agents import Agent
 from .actions import get_action, calculate_damage, apply_effects, get_random_comment
 
 class Battle:
-    def __init__(self, agent1: Agent, agent2: Agent):
+    def __init__(self, agent1: Agent, agent2: Agent, reset_agents: bool = True):
         self.agent1 = agent1
         self.agent2 = agent2
         self.current_round = 0
@@ -17,8 +17,9 @@ class Battle:
         self.winner: Optional[Agent] = None
         
         # Reset agents for battle
-        self.agent1.reset_for_battle()
-        self.agent2.reset_for_battle()
+        if reset_agents:
+            self.agent1.reset_for_battle()
+            self.agent2.reset_for_battle()
     
     def execute_turn(self, action1_id: int, action2_id: int) -> Dict:
         """Execute one turn of battle"""
