@@ -7,6 +7,8 @@ from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
 import secrets
 import os
+import random
+from typing import Dict, List, Optional
 from game import Agent, get_all_actions, Battle, get_all_battle_bots, get_battle_bot, get_bot_skins, get_unlocked_skins
 
 app = Flask(__name__)
@@ -15,6 +17,94 @@ CORS(app)
 
 # Store active battles in memory (in production, use Redis or database)
 battles = {}
+
+
+def _get_ai_profile(agent: Agent) -> str:
+    """Return deterministic AI profile (aggressive/defensive) based on bot ID."""
+    profile_hash = sum(ord(char) for char in agent.agent_type)
+    return 'aggressive' if profile_hash % 2 else 'defensive'
+
+
+def _get_action_category(action: Dict) -> str:
+    """Classify an action into offensive/debuff/defensive categories."""
+    debuff_effects = {'burn', 'slow', 'sticky', 'debuff_attack', 'debuff_defense'}
+    defensive_effects = {'heal', 'buff_defense'}
+
+    action_effects = set(action.get('effects', []))
+    if action_effects & defensive_effects:
+        return 'defensive'
+    if action_effects & debuff_effects:
+        return 'debuff'
+    return 'offensive'
+
+
+def _has_named_effect(effects: List[Dict], name: str) -> bool:
+    """Check if a list of buffs/debuffs contains an entry by name."""
+    return any(effect.get('name') == name for effect in effects)
+
+
+def select_ai_action(agent: Agent, opponent: Agent, rng: Optional[random.Random] = None,
+                     actions: Optional[List[Dict]] = None) -> Dict:
+    """Choose an AI action with weighted randomness and awareness of current effects."""
+
+    rng = rng or random
+    actions = actions or get_all_actions()
+
+    # Filter actions by stamina
+    available_actions = [a for a in actions if a['stamina_cost'] <= agent.stamina]
+
+    if not available_actions:
+        return sorted(actions, key=lambda x: x['stamina_cost'])[0]
+
+    profile = _get_ai_profile(agent)
+    base_profile_weights = {
+        'aggressive': {'offensive': 1.2, 'debuff': 1.0, 'defensive': 0.85},
+        'defensive': {'offensive': 0.9, 'debuff': 1.0, 'defensive': 1.25},
+    }
+
+    profile_weights = base_profile_weights.get(profile, base_profile_weights['aggressive'])
+    type_randomness = {category: profile_weights[category] * rng.uniform(0.85, 1.15)
+                       for category in ['offensive', 'debuff', 'defensive']}
+
+    opponent_burning = _has_named_effect(opponent.debuffs, 'Brennend')
+    agent_sticky = _has_named_effect(agent.debuffs, 'Klebrig')
+    low_hp = agent.hp < agent.max_hp * 0.4
+
+    defensive_options = [a for a in available_actions if _get_action_category(a) == 'defensive']
+    if profile == 'defensive' and low_hp and defensive_options:
+        available_actions = defensive_options
+
+    if agent_sticky:
+        min_cost = min(action['stamina_cost'] for action in available_actions)
+        cheap_cap = min_cost + 5
+        available_actions = [a for a in available_actions if a['stamina_cost'] <= cheap_cap]
+
+    action_weights = []
+    for action in available_actions:
+        category = _get_action_category(action)
+        weight = type_randomness[category]
+
+        if profile == 'aggressive' and category == 'offensive':
+            weight *= 1.1
+
+        if profile == 'defensive' and category == 'defensive':
+            weight *= 1.2
+
+        if low_hp and category == 'defensive':
+            weight *= 1.35
+
+        if opponent_burning and category == 'debuff':
+            weight *= 1.25
+
+        if agent_sticky:
+            weight *= 1 / (1 + (action['stamina_cost'] / 12))
+
+        weight *= 1 + (action['damage_range'][1] / 60)
+        weight *= 1 + max(0, (40 - action['stamina_cost'])) / 220
+
+        action_weights.append(weight)
+
+    return rng.choices(available_actions, weights=action_weights, k=1)[0]
 
 @app.route('/')
 def index():
@@ -119,34 +209,10 @@ def get_ai_action():
     
     battle = battles[battle_id]
     agent = battle.agent2  # AI is always agent2
-    
-    # Simple AI logic
-    actions = get_all_actions()
-    
-    # Filter actions by stamina
-    available_actions = [a for a in actions if a['stamina_cost'] <= agent.stamina]
-    
-    if not available_actions:
-        # If no stamina, pick cheapest action
-        available_actions = sorted(actions, key=lambda x: x['stamina_cost'])[:1]
-    
-    # AI strategy: prefer high damage when HP is high, defensive when low
-    if agent.hp < agent.max_hp * 0.3:
-        # Low HP: prefer healing/defensive
-        defensive = [a for a in available_actions if 'heal' in a['effects'] or 'buff_defense' in a['effects']]
-        if defensive:
-            action = defensive[0]
-        else:
-            action = available_actions[0]
-    else:
-        # High HP: prefer offensive
-        offensive = [a for a in available_actions if 'burn' in a['effects'] or 'debuff_attack' in a['effects']]
-        if offensive:
-            action = offensive[0]
-        else:
-            # Pick highest damage
-            action = max(available_actions, key=lambda x: x['damage_range'][1])
-    
+    opponent = battle.agent1
+
+    action = select_ai_action(agent, opponent)
+
     return jsonify({'action_id': action['id']})
 
 @app.route('/health')
