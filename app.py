@@ -8,6 +8,7 @@ import os
 import secrets
 import sqlite3
 import time
+from typing import Optional
 
 from flask import Flask, jsonify, render_template, request, session
 from flask_cors import CORS
@@ -94,7 +95,8 @@ def battle_from_dict(data: dict) -> Battle:
 
 
 def save_battle(battle_id: str, battle: Battle):
-    """Persist battle state"""
+    """Persist battle state and refresh TTL"""
+    cleanup_expired_battles()
     payload = json.dumps(battle_to_dict(battle))
     with get_db_connection() as conn:
         conn.execute(
@@ -103,7 +105,7 @@ def save_battle(battle_id: str, battle: Battle):
         )
 
 
-def load_battle(battle_id: str) -> Battle | None:
+def load_battle(battle_id: str) -> Optional[Battle]:
     """Load battle from storage"""
     cleanup_expired_battles()
     with get_db_connection() as conn:
@@ -139,6 +141,24 @@ def record_agent_result(agent_name: str, won: bool):
 
 
 init_db()
+
+
+@app.before_request
+def prune_expired_battles():
+    """Ensure expired battles are removed before every request."""
+    cleanup_expired_battles()
+
+
+def get_battle_or_error(battle_id: Optional[str]):
+    """Load a battle or return a tuple with an error response and status."""
+    if not battle_id:
+        return None, jsonify({'error': 'Battle not found'}), 404
+
+    battle = load_battle(battle_id)
+    if not battle:
+        return None, jsonify({'error': 'Battle not found'}), 404
+
+    return battle, None, None
 
 @app.route('/')
 def index():
@@ -205,12 +225,9 @@ def execute_turn():
     data = request.json
     battle_id = data.get('battle_id') or session.get('battle_id')
 
-    if not battle_id:
-        return jsonify({'error': 'Battle not found'}), 404
-
-    battle = load_battle(battle_id)
-    if not battle:
-        return jsonify({'error': 'Battle not found'}), 404
+    battle, error_response, status = get_battle_or_error(battle_id)
+    if error_response:
+        return error_response, status
     
     action1_id = data.get('action1_id', 1)
     action2_id = data.get('action2_id', 1)
@@ -236,9 +253,9 @@ def execute_turn():
 @app.route('/api/battle/summary/<battle_id>', methods=['GET'])
 def get_battle_summary(battle_id):
     """Get battle summary"""
-    battle = load_battle(battle_id)
-    if not battle:
-        return jsonify({'error': 'Battle not found'}), 404
+    battle, error_response, status = get_battle_or_error(battle_id)
+    if error_response:
+        return error_response, status
     return jsonify(battle.get_battle_summary())
 
 @app.route('/api/battle/ai-action', methods=['POST'])
@@ -247,12 +264,9 @@ def get_ai_action():
     data = request.json
     battle_id = data.get('battle_id') or session.get('battle_id')
 
-    if not battle_id:
-        return jsonify({'error': 'Battle not found'}), 404
-
-    battle = load_battle(battle_id)
-    if not battle:
-        return jsonify({'error': 'Battle not found'}), 404
+    battle, error_response, status = get_battle_or_error(battle_id)
+    if error_response:
+        return error_response, status
     agent = battle.agent2  # AI is always agent2
     
     # Simple AI logic
