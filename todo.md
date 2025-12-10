@@ -1,9 +1,5 @@
 # Agent Battle Simulator WebApp - TODO
-
-## 🤖 21 Web3 Bots System
-
-- [x] Create 21 bot definitions (Namen behalten, Crypto-Theme entfernen)
-- [x] Neue Titel passend zum Battle Simulator
+## 🤖 21 Battle Bots System\n\n- [x] Create 21 bot definitions (Battle-themed)- [x] Neue Titel passend zum Battle Simulator
 - [x] Fähigkeiten passend zum Kampfsystem
 - [x] Farben aus Liste verwenden
 - [x] Stats basierend auf Bot-Rolle

@@ -7,7 +7,7 @@ from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
 import secrets
 import os
-from game import Agent, get_all_actions, Battle, get_all_web3_bots, get_web3_bot, get_bot_skins, get_unlocked_skins
+from game import Agent, get_all_actions, Battle, get_all_battle_bots, get_battle_bot, get_bot_skins, get_unlocked_skins
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
@@ -26,12 +26,7 @@ def get_actions():
     """Get all available actions"""
     return jsonify(get_all_actions())
 
-@app.route('/api/bots', methods=['GET'])
-def get_bots():
-    """Get all available Web3 bots"""
-    return jsonify(get_all_web3_bots())
-
-@app.route('/api/bots/<bot_id>/skins', methods=['GET'])
+@app.route('/api/bots', methods=['GET'])\ndef get_bots():\n    """Get all available battle bots"""\n    return jsonify(get_all_battle_bots())app.route('/api/bots/<bot_id>/skins', methods=['GET'])
 def get_skins(bot_id):
     """Get all skins for a bot"""
     return jsonify(get_bot_skins(bot_id))
@@ -52,9 +47,7 @@ def start_battle():
     agent1_bot = data.get('agent1_bot', 'mende')
     agent2_bot = data.get('agent2_bot', 'regulus')
     
-    # Get bot data
-    agent1_bot_data = get_web3_bot(agent1_bot)
-    agent2_bot_data = get_web3_bot(agent2_bot)
+    # Get bot data    agent1_bot_data = get_battle_bot(agent1_bot)\n    agent2_bot_data = get_battle_bot(agent2_bot)
     
     agent1 = Agent(agent1_name, agent_type=agent1_bot, level=1, agent_type_data=agent1_bot_data)
     agent2 = Agent(agent2_name, agent_type=agent2_bot, level=1, agent_type_data=agent2_bot_data)

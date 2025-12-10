@@ -57,7 +57,7 @@ Jeder Bot hat:
     - Special: +30% XP Gain nach jedem Kampf
     - Farbe: Dunkelblau (#4400ff)
 
-12. **Scholar** - Der Blockchain-Forscher (Researcher)
+12. **Scholar** - Der Kampf-Forscher (Researcher)
     - Special: Debuffs auf Gegner dauern 1 Runde länger
     - Farbe: Magenta (#aa00ff)
 
@@ -155,7 +155,7 @@ Jeder Bot hat **5 Skins**, die durch Level-Ups freigeschaltet werden:
 ## 🔧 Technische Details
 
 ### Backend (Python/Flask)
-- `game/web3_bots.py` - 21 Bot-Definitionen
+- `game/battle_bots.py` - 21 Bot-Definitionen
 - `game/skins.py` - Skin-System mit Level-Unlocks
 - `app.py` - Neue API Endpoints:
   - `GET /api/bots` - Alle Bots

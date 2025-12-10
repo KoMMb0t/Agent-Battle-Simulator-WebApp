@@ -1,9 +1,4 @@
-"""
-Agent Battle Simulator - 21 Web3 Bots
-Mixed themes: Office Warriors, AI Agents, Gaming Legends
-"""
-
-WEB3_BOTS = [
+"""\nAgent Battle Simulator - 21 Battle Bots\nMixed themes: Office Warriors, AI Agents, Gaming Legends\n"""\n\nBATTLE_BOTS = [
     {
         "id": "mende",
         "name": "Mende",
@@ -238,7 +233,7 @@ WEB3_BOTS = [
     {
         "id": "scholar",
         "name": "Scholar",
-        "title": "Der Blockchain-Forscher",
+        "title": "Der Kampf-Forscher",
         "description": "Erforscht Kampfmuster und optimiert Strategien",
         "avatar": "🔬",
         "color": "#aa00ff",
@@ -447,13 +442,4 @@ WEB3_BOTS = [
     }
 ]
 
-def get_web3_bot(bot_id: str):
-    """Get bot by ID"""
-    for bot in WEB3_BOTS:
-        if bot['id'] == bot_id:
-            return bot
-    return WEB3_BOTS[3]  # Default: Regulus
-
-def get_all_web3_bots():
-    """Get all available bots"""
-    return WEB3_BOTS
+def get_battle_bot(bot_id: str):\n    """Get bot by ID"""\n    for bot in BATTLE_BOTS:\n        if bot['id'] == bot_id:\n            return bot\n    return BATTLE_BOTS[3]  # Default: Regulus\n\ndef get_all_battle_bots():\n    """Get all available bots"""\n    return BATTLE_BOTS
