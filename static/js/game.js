@@ -247,13 +247,20 @@ class GameController {
             const data = await response.json();
             
             // Update agents
-            this.agent1 = data.agent1;
-            this.agent2 = data.agent2;
+            this.agent1 = data.agent1_state;
+            this.agent2 = data.agent2_state;
             this.currentRound = data.round;
             
             // Update UI
             this.updateBattleUI();
-            this.addCombatLog(data.commentary);
+            
+            // Add combat log for each action
+            if (data.actions && data.actions.length > 0) {
+                data.actions.forEach(action => {
+                    const logText = `${action.attacker}: ${action.action} (${action.damage} Schaden) - ${action.comment}`;
+                    this.addCombatLog(logText);
+                });
+            }
             
             // Check for winner
             if (data.winner) {
