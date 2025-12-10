@@ -141,8 +141,12 @@ class GameController {
             
             // Switch to battle screen
             this.showScreen('battle-screen');
-            this.updateBattleUI();
-            this.renderActionButtons();
+            
+            // Wait for DOM to update before rendering
+            setTimeout(() => {
+                this.updateBattleUI();
+                this.renderActionButtons();
+            }, 100);
             
         } catch (error) {
             console.error('Error starting battle:', error);
@@ -174,8 +178,12 @@ class GameController {
             
             // Switch to battle screen
             this.showScreen('battle-screen');
-            this.updateBattleUI();
-            this.renderActionButtons();
+            
+            // Wait for DOM to update before rendering
+            setTimeout(() => {
+                this.updateBattleUI();
+                this.renderActionButtons();
+            }, 100);
             
         } catch (error) {
             console.error('Error starting battle:', error);
@@ -184,7 +192,7 @@ class GameController {
     }
     
     renderActionButtons() {
-        const container = document.getElementById('action-buttons');
+        const container = document.getElementById('actions-grid');
         container.innerHTML = '';
         
         this.actions.forEach((action, index) => {

@@ -48,3 +48,9 @@
 - [ ] Add level progression indicator
 - [ ] Save agent levels between battles
 - [ ] Add level-based rewards
+
+
+## 🐛 Bugs
+
+- [ ] Action buttons not rendering in battle screen (container is null)
+- [ ] Bot selection grid not showing (timing issue)
