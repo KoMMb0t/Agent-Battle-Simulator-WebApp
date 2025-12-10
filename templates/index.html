@@ -34,44 +34,16 @@
             <button id="confirm-selection-btn" class="btn btn-primary">⚔️ KAMPF STARTEN</button>
         </div>
         
-        <!-- Start Screen (Legacy - wird durch Agent Selection ersetzt) -->
-        <div id="start-screen" class="screen">
-            <div class="title-box">
-                <h1>🤖 AGENT BATTLE SIMULATOR</h1>
-                <p class="subtitle">Absurde Kämpfe. Maximaler Spaß. Null Sinn.</p>
-            </div>
-            
-            <div class="agent-setup">
-                <div class="agent-input">
-                    <label for="agent1-name">🔵 Agent 1 Name:</label>
-                    <input type="text" id="agent1-name" value="Agent Alpha" maxlength="20">
-                </div>
-                
-                <div class="vs-divider">VS</div>
-                
-                <div class="agent-input">
-                    <label for="agent2-name">🔴 Agent 2 Name (AI):</label>
-                    <input type="text" id="agent2-name" value="Agent Beta" maxlength="20">
-                </div>
-            </div>
-            
-            <button id="start-battle-btn" class="btn btn-primary">⚔️ KAMPF STARTEN</button>
-            
-            <div class="info-box">
-                <h3>📜 Spielregeln:</h3>
-                <ul>
-                    <li>Wähle jede Runde eine Aktion (1-8)</li>
-                    <li>Jede Aktion kostet Stamina</li>
-                    <li>Reduziere die HP des Gegners auf 0</li>
-                    <li>Nutze Buffs & Debuffs strategisch!</li>
-                </ul>
-            </div>
-        </div>
-        
         <!-- Battle Screen -->
         <div id="battle-screen" class="screen">
             <div class="battle-header">
                 <h2>⚔️ RUNDE <span id="round-number">1</span></h2>
+            </div>
+
+            <div id="guided-tour" class="info-box" hidden>
+                <h3>🚀 Schnellstart</h3>
+                <p>Du bist im Kampfbildschirm! Wähle unten eine Aktion aus, um sofort in die Schlacht zu springen.</p>
+                <button id="guided-tour-btn" class="btn btn-primary">Alles klar!</button>
             </div>
             
             <!-- Agent Stats -->

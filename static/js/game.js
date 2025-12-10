@@ -12,7 +12,8 @@ class GameController {
         this.selectedBot2 = null;
         this.currentRound = 0;
         this.isProcessing = false;
-        
+        this.hasShownGuidedTour = false;
+
         this.init();
     }
     
@@ -20,10 +21,15 @@ class GameController {
         // Load bots and actions
         await this.loadBots();
         await this.loadActions();
-        
+
         // Event listeners
         document.getElementById('confirm-selection-btn').addEventListener('click', () => this.confirmSelection());
         document.getElementById('new-battle-btn').addEventListener('click', () => this.resetGame());
+
+        const guidedTourBtn = document.getElementById('guided-tour-btn');
+        if (guidedTourBtn) {
+            guidedTourBtn.addEventListener('click', () => this.hideGuidedTour());
+        }
     }
     
     async loadBots() {
@@ -138,55 +144,24 @@ class GameController {
             this.agent1 = data.agent1;
             this.agent2 = data.agent2;
             this.currentRound = 1;
-            
+
             // Switch to battle screen
             this.showScreen('battle-screen');
+            document.getElementById('battle-log').innerHTML = '';
+            this.showGuidedTour();
             this.updateBattleUI();
             this.renderActionButtons();
-            
+
         } catch (error) {
             console.error('Error starting battle:', error);
             alert('Fehler beim Starten des Kampfes!');
         }
     }
-    
-    async startBattle() {
-        const agent1Name = document.getElementById('agent1-name').value.trim() || 'Agent Alpha';
-        const agent2Name = document.getElementById('agent2-name').value.trim() || 'Agent Beta';
-        
-        try {
-            const response = await fetch('/api/battle/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    agent1_name: agent1Name,
-                    agent2_name: agent2Name,
-                    agent1_bot: 'mende',
-                    agent2_bot: 'regulus'
-                })
-            });
-            
-            const data = await response.json();
-            this.battleId = data.battle_id;
-            this.agent1 = data.agent1;
-            this.agent2 = data.agent2;
-            this.currentRound = 1;
-            
-            // Switch to battle screen
-            this.showScreen('battle-screen');
-            this.updateBattleUI();
-            this.renderActionButtons();
-            
-        } catch (error) {
-            console.error('Error starting battle:', error);
-            alert('Fehler beim Starten des Kampfes!');
-        }
-    }
-    
+
     renderActionButtons() {
-        const container = document.getElementById('action-buttons');
+        const container = document.getElementById('actions-grid');
         container.innerHTML = '';
-        
+
         this.actions.forEach((action, index) => {
             const button = document.createElement('button');
             button.className = 'action-btn';
@@ -203,7 +178,7 @@ class GameController {
             container.appendChild(button);
         });
     }
-    
+
     async executeAction(actionId) {
         if (this.isProcessing) return;
         
@@ -316,19 +291,37 @@ class GameController {
     }
     
     addCombatLog(commentary) {
-        const log = document.getElementById('combat-log');
+        const log = document.getElementById('battle-log');
         const entry = document.createElement('div');
         entry.className = 'log-entry';
         entry.textContent = `⚔️ ${commentary}`;
         log.appendChild(entry);
         log.scrollTop = log.scrollHeight;
     }
-    
+
     showVictoryScreen(winner) {
-        document.getElementById('winner-name').textContent = winner;
+        const victoryMessage = document.getElementById('victory-message');
+        if (victoryMessage) {
+            victoryMessage.textContent = `${winner} hat den Kampf gewonnen!`;
+        }
         this.showScreen('victory-screen');
     }
-    
+
+    showGuidedTour() {
+        const guidedTour = document.getElementById('guided-tour');
+        if (guidedTour && !this.hasShownGuidedTour) {
+            guidedTour.hidden = false;
+        }
+    }
+
+    hideGuidedTour() {
+        const guidedTour = document.getElementById('guided-tour');
+        if (guidedTour) {
+            guidedTour.hidden = true;
+            this.hasShownGuidedTour = true;
+        }
+    }
+
     showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.remove('active');
@@ -341,7 +334,9 @@ class GameController {
         this.agent1 = null;
         this.agent2 = null;
         this.currentRound = 0;
-        document.getElementById('combat-log').innerHTML = '';
+        document.getElementById('battle-log').innerHTML = '';
+        this.hideGuidedTour();
+        this.hasShownGuidedTour = false;
         this.showScreen('agent-selection-screen');
     }
 }
