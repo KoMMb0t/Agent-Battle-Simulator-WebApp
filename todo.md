@@ -52,5 +52,6 @@
 
 ## 🐛 Bugs
 
-- [ ] Action buttons not rendering in battle screen (container is null)
-- [ ] Bot selection grid not showing (timing issue)
+- [x] Action buttons not rendering in battle screen (container is null) - FIXED
+- [x] Bot selection grid not showing (timing issue) - FIXED
+- [x] Actions not executing (missing AI action call) - FIXED

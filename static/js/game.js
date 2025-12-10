@@ -280,6 +280,11 @@ class GameController {
     }
     
     updateAgentDisplay(agent, num) {
+        if (!agent) {
+            console.error(`Agent ${num} is undefined!`);
+            return;
+        }
+        
         // Name & Level
         document.getElementById(`agent${num}-name-display`).textContent = agent.name;
         document.getElementById(`agent${num}-level`).textContent = agent.level;
