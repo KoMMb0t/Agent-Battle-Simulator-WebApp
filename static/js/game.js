@@ -12,18 +12,59 @@ class GameController {
         this.selectedBot2 = null;
         this.currentRound = 0;
         this.isProcessing = false;
-        
+        this.messageBanner = null;
+
         this.init();
     }
-    
+
     async init() {
         // Load bots and actions
         await this.loadBots();
         await this.loadActions();
-        
+
+        this.messageBanner = document.getElementById('message-banner');
+
         // Event listeners
         document.getElementById('confirm-selection-btn').addEventListener('click', () => this.confirmSelection());
         document.getElementById('new-battle-btn').addEventListener('click', () => this.resetGame());
+    }
+
+    showMessage(message, type = 'info') {
+        if (!this.messageBanner) return;
+        this.messageBanner.textContent = message;
+        this.messageBanner.classList.remove('hidden', 'error');
+        if (type === 'error') {
+            this.messageBanner.classList.add('error');
+        }
+    }
+
+    clearMessage() {
+        if (!this.messageBanner) return;
+        this.messageBanner.textContent = '';
+        this.messageBanner.classList.add('hidden');
+        this.messageBanner.classList.remove('error');
+    }
+
+    async handleApiResponse(response) {
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (error) {
+            // ignore JSON errors; handled below
+        }
+
+        if (!response.ok) {
+            const message = data?.error || 'Unbekannter Fehler ist aufgetreten.';
+            this.showMessage(message, 'error');
+            const code = data?.code;
+            if (code === 'battle_expired' || code === 'battle_not_found') {
+                this.resetGame();
+            }
+            throw new Error(message);
+        }
+
+        this.clearMessage();
+        return data;
     }
     
     async loadBots() {
@@ -133,7 +174,7 @@ class GameController {
                 })
             });
             
-            const data = await response.json();
+            const data = await this.handleApiResponse(response);
             this.battleId = data.battle_id;
             this.agent1 = data.agent1;
             this.agent2 = data.agent2;
@@ -150,7 +191,7 @@ class GameController {
             
         } catch (error) {
             console.error('Error starting battle:', error);
-            alert('Fehler beim Starten des Kampfes!');
+            this.showMessage('Fehler beim Starten des Kampfes!', 'error');
         }
     }
     
@@ -170,7 +211,7 @@ class GameController {
                 })
             });
             
-            const data = await response.json();
+            const data = await this.handleApiResponse(response);
             this.battleId = data.battle_id;
             this.agent1 = data.agent1;
             this.agent2 = data.agent2;
@@ -187,7 +228,7 @@ class GameController {
             
         } catch (error) {
             console.error('Error starting battle:', error);
-            alert('Fehler beim Starten des Kampfes!');
+            this.showMessage('Fehler beim Starten des Kampfes!', 'error');
         }
     }
     
@@ -243,9 +284,9 @@ class GameController {
                     action2_id: aiData.action_id
                 })
             });
-            
-            const data = await response.json();
-            
+
+            const data = await this.handleApiResponse(response);
+
             // Update agents
             this.agent1 = data.agent1_state;
             this.agent2 = data.agent2_state;
@@ -269,7 +310,7 @@ class GameController {
             
         } catch (error) {
             console.error('Error executing action:', error);
-            alert('Fehler beim Ausführen der Aktion!');
+            this.showMessage('Fehler beim Ausführen der Aktion!', 'error');
         } finally {
             this.isProcessing = false;
         }
@@ -374,6 +415,7 @@ class GameController {
         this.agent2 = null;
         this.currentRound = 0;
         document.getElementById('combat-log').innerHTML = '';
+        this.clearMessage();
         this.showScreen('agent-selection-screen');
     }
 }

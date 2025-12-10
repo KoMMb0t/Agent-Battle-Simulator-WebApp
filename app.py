@@ -7,14 +7,21 @@ from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
 import secrets
 import os
+from battle_storage import BattleStorage
 from game import Agent, get_all_actions, Battle, get_all_battle_bots, get_battle_bot, get_bot_skins, get_unlocked_skins
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 CORS(app)
 
-# Store active battles in memory (in production, use Redis or database)
-battles = {}
+# Battle storage with TTL + cleanup
+battle_storage = BattleStorage()
+
+
+@app.before_request
+def prune_battles():
+    """Periodically prune expired battles when using in-memory store."""
+    battle_storage.prune_expired()
 
 @app.route('/')
 def index():
@@ -64,7 +71,7 @@ def start_battle():
     
     # Generate battle ID
     battle_id = secrets.token_urlsafe(16)
-    battles[battle_id] = battle
+    battle_storage.save_battle(battle_id, battle)
     
     # Store in session
     session['battle_id'] = battle_id
@@ -80,32 +87,42 @@ def execute_turn():
     """Execute one turn of battle"""
     data = request.json
     battle_id = data.get('battle_id') or session.get('battle_id')
-    
-    if not battle_id or battle_id not in battles:
-        return jsonify({'error': 'Battle not found'}), 404
-    
-    battle = battles[battle_id]
-    
-    action1_id = data.get('action1_id', 1)
+
+    battle, error_reason = battle_storage.get_battle(battle_id) if battle_id else (None, 'not_found')
+    if error_reason:
+        status_code = 410 if error_reason == 'expired' else 404
+        return jsonify({'error': 'Battle abgelaufen oder nicht gefunden', 'code': f'battle_{error_reason}'}), status_code
+
+    action1_id = data.get('action1_id') or data.get('action_id', 1)
     action2_id = data.get('action2_id', 1)
     
     # Execute turn
     result = battle.execute_turn(action1_id, action2_id)
-    
-    # Clean up if battle is over
-    if result['battle_over']:
-        # Keep battle for a while for summary
-        pass
-    
-    return jsonify(result)
+
+    # Persist updated state and refresh TTL
+    battle_storage.save_battle(battle_id, battle)
+
+    commentary = '; '.join([action.get('comment', action.get('action', '')) for action in result.get('actions', [])])
+    response_payload = {
+        'round': result.get('round'),
+        'actions': result.get('actions'),
+        'agent1': result.get('agent1_state'),
+        'agent2': result.get('agent2_state'),
+        'battle_over': result.get('battle_over'),
+        'winner': result.get('winner'),
+        'commentary': commentary
+    }
+
+    return jsonify(response_payload)
 
 @app.route('/api/battle/summary/<battle_id>', methods=['GET'])
 def get_battle_summary(battle_id):
     """Get battle summary"""
-    if battle_id not in battles:
-        return jsonify({'error': 'Battle not found'}), 404
-    
-    battle = battles[battle_id]
+    battle, error_reason = battle_storage.get_battle(battle_id)
+    if error_reason:
+        status_code = 410 if error_reason == 'expired' else 404
+        return jsonify({'error': 'Battle abgelaufen oder nicht gefunden', 'code': f'battle_{error_reason}'}), status_code
+
     return jsonify(battle.get_battle_summary())
 
 @app.route('/api/battle/ai-action', methods=['POST'])
@@ -113,11 +130,13 @@ def get_ai_action():
     """Get AI-recommended action"""
     data = request.json
     battle_id = data.get('battle_id') or session.get('battle_id')
-    
-    if not battle_id or battle_id not in battles:
-        return jsonify({'error': 'Battle not found'}), 404
-    
-    battle = battles[battle_id]
+
+    battle, error_reason = battle_storage.get_battle(battle_id) if battle_id else (None, 'not_found')
+    if error_reason:
+        status_code = 410 if error_reason == 'expired' else 404
+        return jsonify({'error': 'Battle abgelaufen oder nicht gefunden', 'code': f'battle_{error_reason}'}), status_code
+
+    battle_storage.save_battle(battle_id, battle)
     agent = battle.agent2  # AI is always agent2
     
     # Simple AI logic
