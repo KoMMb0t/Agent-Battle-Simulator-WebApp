@@ -26,7 +26,12 @@ def get_actions():
     """Get all available actions"""
     return jsonify(get_all_actions())
 
-@app.route('/api/bots', methods=['GET'])\ndef get_bots():\n    """Get all available battle bots"""\n    return jsonify(get_all_battle_bots())app.route('/api/bots/<bot_id>/skins', methods=['GET'])
+@app.route('/api/bots', methods=['GET'])
+def get_bots():
+    """Get all available battle bots"""
+    return jsonify(get_all_battle_bots())
+
+@app.route('/api/bots/<bot_id>/skins', methods=['GET'])
 def get_skins(bot_id):
     """Get all skins for a bot"""
     return jsonify(get_bot_skins(bot_id))
@@ -47,7 +52,9 @@ def start_battle():
     agent1_bot = data.get('agent1_bot', 'mende')
     agent2_bot = data.get('agent2_bot', 'regulus')
     
-    # Get bot data    agent1_bot_data = get_battle_bot(agent1_bot)\n    agent2_bot_data = get_battle_bot(agent2_bot)
+    # Get bot data
+    agent1_bot_data = get_battle_bot(agent1_bot)
+    agent2_bot_data = get_battle_bot(agent2_bot)
     
     agent1 = Agent(agent1_name, agent_type=agent1_bot, level=1, agent_type_data=agent1_bot_data)
     agent2 = Agent(agent2_name, agent_type=agent2_bot, level=1, agent_type_data=agent2_bot_data)
