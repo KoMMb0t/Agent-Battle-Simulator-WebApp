@@ -9,14 +9,15 @@ import secrets
 import os
 import random
 from typing import Dict, List, Optional
+from battle_storage import BattleStorage
 from game import Agent, get_all_actions, Battle, get_all_battle_bots, get_battle_bot, get_bot_skins, get_unlocked_skins
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 CORS(app)
 
-# Store active battles in memory (in production, use Redis or database)
-battles = {}
+# Battle storage with TTL + cleanup
+battle_storage = BattleStorage()
 
 
 def _get_ai_profile(agent: Agent) -> str:
@@ -154,7 +155,7 @@ def start_battle():
     
     # Generate battle ID
     battle_id = secrets.token_urlsafe(16)
-    battles[battle_id] = battle
+    battle_storage.set(battle_id, battle)
     
     # Store in session
     session['battle_id'] = battle_id
@@ -171,10 +172,10 @@ def execute_turn():
     data = request.json
     battle_id = data.get('battle_id') or session.get('battle_id')
     
-    if not battle_id or battle_id not in battles:
+    if not battle_id or not battle_storage.has(battle_id):
         return jsonify({'error': 'Battle not found'}), 404
-    
-    battle = battles[battle_id]
+
+    battle = battle_storage.get(battle_id)
     
     action1_id = data.get('action1_id', 1)
     action2_id = data.get('action2_id', 1)
@@ -192,10 +193,10 @@ def execute_turn():
 @app.route('/api/battle/summary/<battle_id>', methods=['GET'])
 def get_battle_summary(battle_id):
     """Get battle summary"""
-    if battle_id not in battles:
+    if not battle_storage.has(battle_id):
         return jsonify({'error': 'Battle not found'}), 404
-    
-    battle = battles[battle_id]
+
+    battle = battle_storage.get(battle_id)
     return jsonify(battle.get_battle_summary())
 
 @app.route('/api/battle/ai-action', methods=['POST'])
@@ -204,10 +205,10 @@ def get_ai_action():
     data = request.json
     battle_id = data.get('battle_id') or session.get('battle_id')
     
-    if not battle_id or battle_id not in battles:
+    if not battle_id or not battle_storage.has(battle_id):
         return jsonify({'error': 'Battle not found'}), 404
-    
-    battle = battles[battle_id]
+
+    battle = battle_storage.get(battle_id)
     agent = battle.agent2  # AI is always agent2
     opponent = battle.agent1
 
