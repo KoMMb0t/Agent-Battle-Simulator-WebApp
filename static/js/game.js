@@ -184,6 +184,7 @@ class GameController {
 
     async startBattleWithOptions({ agent1Name, agent2Name, agent1Bot, agent2Bot }) {
         try {
+            console.log('Starting battle with:', { agent1Name, agent2Name, agent1Bot, agent2Bot });
             const response = await fetch('/api/battle/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -196,6 +197,7 @@ class GameController {
             });
 
             const { data, rawText } = await this.parseJson(response);
+            console.log('Battle start response:', { data, rawText });
             if (!response.ok) {
                 throw new Error(data?.message || rawText || 'Fehler beim Starten des Kampfes');
             }
@@ -208,6 +210,7 @@ class GameController {
             this.agent1 = data.agent1;
             this.agent2 = data.agent2;
             this.currentRound = 1;
+            console.log('Battle initialized:', { battleId: this.battleId, agent1: this.agent1?.name, agent2: this.agent2?.name });
 
             // Switch to battle screen
             this.showScreen('battle-screen');
@@ -230,10 +233,10 @@ class GameController {
             button.className = 'action-btn';
             button.innerHTML = `
                 <div class="action-number">${index + 1}</div>
-                <div class="action-name">${action.emoji} ${action.name}</div>
+                <div class="action-name">${action.name}</div>
                 <div class="action-details">
                     <span class="stamina-cost">⚡ ${action.stamina_cost}</span>
-                    <span class="damage-range">💥 ${action.damage_min}-${action.damage_max}</span>
+                    <span class="damage-range">💥 ${action.damage_range[0]}-${action.damage_range[1]}</span>
                 </div>
             `;
             
@@ -271,14 +274,36 @@ class GameController {
                 throw new Error('Ungültige Server-Antwort.');
             }
             
-            // Update agents
-            this.agent1 = data.agent1;
-            this.agent2 = data.agent2;
+            // Update agents from API response
+            // API returns agent1_state and agent2_state (not battle_state)
+            window.debugLog?.('🔍 BEFORE agent assignment', {
+                hasAgent1State: !!data.agent1_state,
+                hasAgent2State: !!data.agent2_state,
+                hasAgent1Direct: !!data.agent1,
+                hasAgent2Direct: !!data.agent2
+            });
+            
+            this.agent1 = data.agent1_state || data.agent1;
+            this.agent2 = data.agent2_state || data.agent2;
             this.currentRound = data.round;
+            
+            window.debugLog?.('✅ AFTER agent assignment', {
+                agent1HP: this.agent1?.hp,
+                agent2HP: this.agent2?.hp,
+                agent1Stamina: this.agent1?.stamina,
+                agent2Stamina: this.agent2?.stamina
+            });
             
             // Update UI
             this.updateBattleUI();
-            this.addCombatLog(data.commentary);
+            
+            // Add combat log entries for each action
+            if (data.actions && Array.isArray(data.actions)) {
+                data.actions.forEach(action => {
+                    const logText = `${action.attacker}: ${action.action} (${action.damage} Schaden) - ${action.comment}`;
+                    this.addCombatLog(logText);
+                });
+            }
             
             // Check for winner
             if (data.winner) {
@@ -294,6 +319,14 @@ class GameController {
     }
     
     updateBattleUI() {
+        window.debugLog?.('🔄 updateBattleUI called', {
+            round: this.currentRound,
+            agent1HP: this.agent1?.hp,
+            agent2HP: this.agent2?.hp,
+            agent1Stamina: this.agent1?.stamina,
+            agent2Stamina: this.agent2?.stamina
+        });
+        
         // Update round
         document.getElementById('round-number').textContent = this.currentRound;
         

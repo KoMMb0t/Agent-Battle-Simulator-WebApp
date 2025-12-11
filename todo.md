@@ -55,3 +55,8 @@
 - [x] Action buttons not rendering in battle screen (container is null) - FIXED
 - [x] Bot selection grid not showing (timing issue) - FIXED
 - [x] Actions not executing (missing AI action call) - FIXED
+- [x] Combat Log shows "undefined" instead of comment - FIXED
+- [x] Test stamina regeneration over multiple rounds - TESTED & WORKING
+- [x] Test buff/debuff duration system - TESTED & WORKING
+- [x] Test complete battle until victory screen - TESTED & WORKING
+- [ ] Integrate all fixes into Hackaton repository
