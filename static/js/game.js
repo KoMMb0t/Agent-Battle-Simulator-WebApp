@@ -12,59 +12,24 @@ class GameController {
         this.selectedBot2 = null;
         this.currentRound = 0;
         this.isProcessing = false;
-        this.messageBanner = null;
+        this.hasShownGuidedTour = false;
 
         this.init();
     }
-
+    
     async init() {
         // Load bots and actions
         await this.loadBots();
         await this.loadActions();
 
-        this.messageBanner = document.getElementById('message-banner');
-
         // Event listeners
         document.getElementById('confirm-selection-btn').addEventListener('click', () => this.confirmSelection());
         document.getElementById('new-battle-btn').addEventListener('click', () => this.resetGame());
-    }
 
-    showMessage(message, type = 'info') {
-        if (!this.messageBanner) return;
-        this.messageBanner.textContent = message;
-        this.messageBanner.classList.remove('hidden', 'error');
-        if (type === 'error') {
-            this.messageBanner.classList.add('error');
+        const guidedTourBtn = document.getElementById('guided-tour-btn');
+        if (guidedTourBtn) {
+            guidedTourBtn.addEventListener('click', () => this.hideGuidedTour());
         }
-    }
-
-    clearMessage() {
-        if (!this.messageBanner) return;
-        this.messageBanner.textContent = '';
-        this.messageBanner.classList.add('hidden');
-        this.messageBanner.classList.remove('error');
-    }
-
-    async handleApiResponse(response) {
-        let data = null;
-        try {
-            data = await response.json();
-        } catch (error) {
-            // ignore JSON errors; handled below
-        }
-
-        if (!response.ok) {
-            const message = data?.error || 'Unbekannter Fehler ist aufgetreten.';
-            this.showMessage(message, 'error');
-            const code = data?.code;
-            if (code === 'battle_expired' || code === 'battle_not_found') {
-                this.resetGame();
-            }
-            throw new Error(message);
-        }
-
-        this.clearMessage();
-        return data;
     }
     
     async loadBots() {
@@ -174,68 +139,29 @@ class GameController {
                 })
             });
             
-            const data = await this.handleApiResponse(response);
+            const data = await response.json();
             this.battleId = data.battle_id;
             this.agent1 = data.agent1;
             this.agent2 = data.agent2;
             this.currentRound = 1;
-            
+
             // Switch to battle screen
             this.showScreen('battle-screen');
-            
-            // Wait for DOM to update before rendering
-            setTimeout(() => {
-                this.updateBattleUI();
-                this.renderActionButtons();
-            }, 100);
-            
+            document.getElementById('battle-log').innerHTML = '';
+            this.showGuidedTour();
+            this.updateBattleUI();
+            this.renderActionButtons();
+
         } catch (error) {
             console.error('Error starting battle:', error);
-            this.showMessage('Fehler beim Starten des Kampfes!', 'error');
+            alert('Fehler beim Starten des Kampfes!');
         }
     }
-    
-    async startBattle() {
-        const agent1Name = document.getElementById('agent1-name').value.trim() || 'Agent Alpha';
-        const agent2Name = document.getElementById('agent2-name').value.trim() || 'Agent Beta';
-        
-        try {
-            const response = await fetch('/api/battle/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    agent1_name: agent1Name,
-                    agent2_name: agent2Name,
-                    agent1_bot: 'mende',
-                    agent2_bot: 'regulus'
-                })
-            });
-            
-            const data = await this.handleApiResponse(response);
-            this.battleId = data.battle_id;
-            this.agent1 = data.agent1;
-            this.agent2 = data.agent2;
-            this.currentRound = 1;
-            
-            // Switch to battle screen
-            this.showScreen('battle-screen');
-            
-            // Wait for DOM to update before rendering
-            setTimeout(() => {
-                this.updateBattleUI();
-                this.renderActionButtons();
-            }, 100);
-            
-        } catch (error) {
-            console.error('Error starting battle:', error);
-            this.showMessage('Fehler beim Starten des Kampfes!', 'error');
-        }
-    }
-    
+
     renderActionButtons() {
         const container = document.getElementById('actions-grid');
         container.innerHTML = '';
-        
+
         this.actions.forEach((action, index) => {
             const button = document.createElement('button');
             button.className = 'action-btn';
@@ -252,56 +178,37 @@ class GameController {
             container.appendChild(button);
         });
     }
-    
+
     async executeAction(actionId) {
         if (this.isProcessing) return;
         
         // Check if battle is over
-        if (!this.agent1 || !this.agent2 || this.agent1.hp <= 0 || this.agent2.hp <= 0) {
+        if (!this.agent1.hp || !this.agent2.hp || this.agent1.hp <= 0 || this.agent2.hp <= 0) {
             return;
         }
         
         this.isProcessing = true;
         
         try {
-            // Get AI action
-            const aiResponse = await fetch('/api/battle/ai-action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    battle_id: this.battleId
-                })
-            });
-            const aiData = await aiResponse.json();
-            
-            // Execute turn with both actions
             const response = await fetch('/api/battle/turn', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     battle_id: this.battleId,
-                    action1_id: actionId,
-                    action2_id: aiData.action_id
+                    action_id: actionId
                 })
             });
-
-            const data = await this.handleApiResponse(response);
-
+            
+            const data = await response.json();
+            
             // Update agents
-            this.agent1 = data.agent1_state;
-            this.agent2 = data.agent2_state;
+            this.agent1 = data.agent1;
+            this.agent2 = data.agent2;
             this.currentRound = data.round;
             
             // Update UI
             this.updateBattleUI();
-            
-            // Add combat log for each action
-            if (data.actions && data.actions.length > 0) {
-                data.actions.forEach(action => {
-                    const logText = `${action.attacker}: ${action.action} (${action.damage} Schaden) - ${action.comment}`;
-                    this.addCombatLog(logText);
-                });
-            }
+            this.addCombatLog(data.commentary);
             
             // Check for winner
             if (data.winner) {
@@ -310,7 +217,7 @@ class GameController {
             
         } catch (error) {
             console.error('Error executing action:', error);
-            this.showMessage('Fehler beim Ausführen der Aktion!', 'error');
+            alert('Fehler beim Ausführen der Aktion!');
         } finally {
             this.isProcessing = false;
         }
@@ -328,11 +235,6 @@ class GameController {
     }
     
     updateAgentDisplay(agent, num) {
-        if (!agent) {
-            console.error(`Agent ${num} is undefined!`);
-            return;
-        }
-        
         // Name & Level
         document.getElementById(`agent${num}-name-display`).textContent = agent.name;
         document.getElementById(`agent${num}-level`).textContent = agent.level;
@@ -389,19 +291,37 @@ class GameController {
     }
     
     addCombatLog(commentary) {
-        const log = document.getElementById('combat-log');
+        const log = document.getElementById('battle-log');
         const entry = document.createElement('div');
         entry.className = 'log-entry';
         entry.textContent = `⚔️ ${commentary}`;
         log.appendChild(entry);
         log.scrollTop = log.scrollHeight;
     }
-    
+
     showVictoryScreen(winner) {
-        document.getElementById('winner-name').textContent = winner;
+        const victoryMessage = document.getElementById('victory-message');
+        if (victoryMessage) {
+            victoryMessage.textContent = `${winner} hat den Kampf gewonnen!`;
+        }
         this.showScreen('victory-screen');
     }
-    
+
+    showGuidedTour() {
+        const guidedTour = document.getElementById('guided-tour');
+        if (guidedTour && !this.hasShownGuidedTour) {
+            guidedTour.hidden = false;
+        }
+    }
+
+    hideGuidedTour() {
+        const guidedTour = document.getElementById('guided-tour');
+        if (guidedTour) {
+            guidedTour.hidden = true;
+            this.hasShownGuidedTour = true;
+        }
+    }
+
     showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.remove('active');
@@ -414,8 +334,9 @@ class GameController {
         this.agent1 = null;
         this.agent2 = null;
         this.currentRound = 0;
-        document.getElementById('combat-log').innerHTML = '';
-        this.clearMessage();
+        document.getElementById('battle-log').innerHTML = '';
+        this.hideGuidedTour();
+        this.hasShownGuidedTour = false;
         this.showScreen('agent-selection-screen');
     }
 }
