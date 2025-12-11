@@ -12,7 +12,6 @@ class GameController {
         this.selectedBot2 = null;
         this.currentRound = 0;
         this.isProcessing = false;
-        this.hasShownGuidedTour = false;
 
         this.init();
     }
@@ -21,25 +20,47 @@ class GameController {
         // Load bots and actions
         await this.loadBots();
         await this.loadActions();
-
+        
         // Event listeners
         document.getElementById('confirm-selection-btn').addEventListener('click', () => this.confirmSelection());
         document.getElementById('new-battle-btn').addEventListener('click', () => this.resetGame());
-
-        const guidedTourBtn = document.getElementById('guided-tour-btn');
-        if (guidedTourBtn) {
-            guidedTourBtn.addEventListener('click', () => this.hideGuidedTour());
+        const legacyStartBtn = document.getElementById('start-battle-btn');
+        if (legacyStartBtn) {
+            legacyStartBtn.addEventListener('click', () => this.startBattleLegacy());
         }
+
+        const nameInputs = [
+            document.getElementById('agent1-name-input'),
+            document.getElementById('agent2-name-input'),
+            document.getElementById('agent1-name'),
+            document.getElementById('agent2-name')
+        ].filter(Boolean);
+
+        nameInputs.forEach(input => {
+            input.addEventListener('input', () => this.validateSelection());
+        });
+
+        this.validateSelection();
     }
     
     async loadBots() {
         try {
             const response = await fetch('/api/bots');
-            this.bots = await response.json();
+            const { data, rawText } = await this.parseJson(response);
+            if (!response.ok) {
+                throw new Error(data?.message || rawText || 'Bots konnten nicht geladen werden');
+            }
+
+            if (!data) {
+                throw new Error('Ungültige Antwort beim Laden der Bots.');
+            }
+
+            this.bots = data;
             console.log('Bots loaded:', this.bots.length);
             this.renderBotSelection();
         } catch (error) {
             console.error('Error loading bots:', error);
+            this.showToast(error.message || 'Fehler beim Laden der Bots.', 'error');
         }
     }
     
@@ -63,6 +84,8 @@ class GameController {
         // Select default bots
         this.selectBot('mende', 1);
         this.selectBot('regulus', 2);
+
+        this.validateSelection();
     }
     
     createBotCard(bot, agentNum) {
@@ -105,28 +128,61 @@ class GameController {
             } else {
                 this.selectedBot2 = botId;
             }
+
+            this.validateSelection();
         }
     }
     
     async loadActions() {
         try {
             const response = await fetch('/api/actions');
-            this.actions = await response.json();
+            const { data, rawText } = await this.parseJson(response);
+            if (!response.ok) {
+                throw new Error(data?.message || rawText || 'Aktionen konnten nicht geladen werden');
+            }
+
+            if (!data) {
+                throw new Error('Ungültige Antwort beim Laden der Aktionen.');
+            }
+
+            this.actions = data;
             console.log('Actions loaded:', this.actions);
         } catch (error) {
             console.error('Error loading actions:', error);
+            this.showToast(error.message || 'Fehler beim Laden der Aktionen.', 'error');
         }
     }
     
     async confirmSelection() {
-        if (!this.selectedBot1 || !this.selectedBot2) {
-            alert('Bitte wähle Bots für beide Agents!');
+        if (!this.isSelectionValid()) {
+            this.showToast('Bitte gültige Agentennamen und Bots auswählen.', 'error');
             return;
         }
-        
+
         const agent1Name = document.getElementById('agent1-name-input').value.trim() || 'Agent Alpha';
         const agent2Name = document.getElementById('agent2-name-input').value.trim() || 'Agent Beta';
-        
+
+        await this.startBattleWithOptions({
+            agent1Name,
+            agent2Name,
+            agent1Bot: this.selectedBot1,
+            agent2Bot: this.selectedBot2
+        });
+    }
+
+    async startBattleLegacy() {
+        const agent1Name = document.getElementById('agent1-name')?.value.trim() || 'Agent Alpha';
+        const agent2Name = document.getElementById('agent2-name')?.value.trim() || 'Agent Beta';
+
+        await this.startBattleWithOptions({
+            agent1Name,
+            agent2Name,
+            agent1Bot: this.selectedBot1 || 'mende',
+            agent2Bot: this.selectedBot2 || 'regulus'
+        });
+    }
+
+    async startBattleWithOptions({ agent1Name, agent2Name, agent1Bot, agent2Bot }) {
         try {
             const response = await fetch('/api/battle/start', {
                 method: 'POST',
@@ -134,12 +190,20 @@ class GameController {
                 body: JSON.stringify({
                     agent1_name: agent1Name,
                     agent2_name: agent2Name,
-                    agent1_bot: this.selectedBot1,
-                    agent2_bot: this.selectedBot2
+                    agent1_bot: agent1Bot,
+                    agent2_bot: agent2Bot
                 })
             });
-            
-            const data = await response.json();
+
+            const { data, rawText } = await this.parseJson(response);
+            if (!response.ok) {
+                throw new Error(data?.message || rawText || 'Fehler beim Starten des Kampfes');
+            }
+
+            if (!data) {
+                throw new Error('Ungültige Server-Antwort.');
+            }
+
             this.battleId = data.battle_id;
             this.agent1 = data.agent1;
             this.agent2 = data.agent2;
@@ -147,21 +211,20 @@ class GameController {
 
             // Switch to battle screen
             this.showScreen('battle-screen');
-            document.getElementById('battle-log').innerHTML = '';
-            this.showGuidedTour();
             this.updateBattleUI();
             this.renderActionButtons();
 
         } catch (error) {
             console.error('Error starting battle:', error);
-            alert('Fehler beim Starten des Kampfes!');
+            this.showToast(error.message || 'Fehler beim Starten des Kampfes!', 'error');
         }
     }
-
+    
     renderActionButtons() {
         const container = document.getElementById('actions-grid');
+        if (!container) return;
         container.innerHTML = '';
-
+        
         this.actions.forEach((action, index) => {
             const button = document.createElement('button');
             button.className = 'action-btn';
@@ -178,7 +241,7 @@ class GameController {
             container.appendChild(button);
         });
     }
-
+    
     async executeAction(actionId) {
         if (this.isProcessing) return;
         
@@ -198,8 +261,15 @@ class GameController {
                     action_id: actionId
                 })
             });
-            
-            const data = await response.json();
+
+            const { data, rawText } = await this.parseJson(response);
+            if (!response.ok) {
+                throw new Error(data?.message || rawText || 'Fehler beim Ausführen der Aktion');
+            }
+
+            if (!data) {
+                throw new Error('Ungültige Server-Antwort.');
+            }
             
             // Update agents
             this.agent1 = data.agent1;
@@ -217,7 +287,7 @@ class GameController {
             
         } catch (error) {
             console.error('Error executing action:', error);
-            alert('Fehler beim Ausführen der Aktion!');
+            this.showToast(error.message || 'Fehler beim Ausführen der Aktion!', 'error');
         } finally {
             this.isProcessing = false;
         }
@@ -292,6 +362,7 @@ class GameController {
     
     addCombatLog(commentary) {
         const log = document.getElementById('battle-log');
+        if (!log) return;
         const entry = document.createElement('div');
         entry.className = 'log-entry';
         entry.textContent = `⚔️ ${commentary}`;
@@ -300,28 +371,20 @@ class GameController {
     }
 
     showVictoryScreen(winner) {
-        const victoryMessage = document.getElementById('victory-message');
-        if (victoryMessage) {
-            victoryMessage.textContent = `${winner} hat den Kampf gewonnen!`;
+        const winnerNameEl = document.getElementById('winner-name');
+        const victoryMessageEl = document.getElementById('victory-message');
+
+        if (winnerNameEl) {
+            winnerNameEl.textContent = winner;
         }
+
+        if (victoryMessageEl) {
+            victoryMessageEl.textContent = `Glückwunsch, ${winner}!`;
+        }
+
         this.showScreen('victory-screen');
     }
-
-    showGuidedTour() {
-        const guidedTour = document.getElementById('guided-tour');
-        if (guidedTour && !this.hasShownGuidedTour) {
-            guidedTour.hidden = false;
-        }
-    }
-
-    hideGuidedTour() {
-        const guidedTour = document.getElementById('guided-tour');
-        if (guidedTour) {
-            guidedTour.hidden = true;
-            this.hasShownGuidedTour = true;
-        }
-    }
-
+    
     showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.remove('active');
@@ -335,9 +398,74 @@ class GameController {
         this.agent2 = null;
         this.currentRound = 0;
         document.getElementById('battle-log').innerHTML = '';
-        this.hideGuidedTour();
-        this.hasShownGuidedTour = false;
         this.showScreen('agent-selection-screen');
+    }
+
+    isSelectionValid() {
+        const namePattern = /^[A-Za-z0-9ÄÖÜäöüß\s\-_.]{1,20}$/;
+        const agent1Input = document.getElementById('agent1-name-input') || document.getElementById('agent1-name');
+        const agent2Input = document.getElementById('agent2-name-input') || document.getElementById('agent2-name');
+
+        const agent1Name = agent1Input?.value.trim();
+        const agent2Name = agent2Input?.value.trim();
+
+        const namesValid = Boolean(agent1Name && agent2Name && namePattern.test(agent1Name) && namePattern.test(agent2Name));
+        const botsValid = Boolean(this.selectedBot1 && this.selectedBot2);
+
+        return namesValid && botsValid;
+    }
+
+    validateSelection() {
+        const confirmBtn = document.getElementById('confirm-selection-btn');
+        const legacyBtn = document.getElementById('start-battle-btn');
+
+        const isValid = this.isSelectionValid();
+        if (confirmBtn) {
+            confirmBtn.disabled = !isValid;
+        }
+        if (legacyBtn) {
+            legacyBtn.disabled = !isValid;
+        }
+    }
+
+    async parseJson(response) {
+        try {
+            const rawText = await response.text();
+            try {
+                const data = rawText ? JSON.parse(rawText) : null;
+                return { data, rawText };
+            } catch (parseError) {
+                console.warn('Failed to parse JSON response', parseError);
+                return { data: null, rawText };
+            }
+        } catch (error) {
+            console.warn('Failed to read response', error);
+            return { data: null, rawText: '' };
+        }
+    }
+
+    showToast(message, type = 'info') {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 50);
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     }
 }
 
