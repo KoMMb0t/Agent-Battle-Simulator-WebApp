@@ -59,4 +59,4 @@
 - [x] Test stamina regeneration over multiple rounds - TESTED & WORKING
 - [x] Test buff/debuff duration system - TESTED & WORKING
 - [x] Test complete battle until victory screen - TESTED & WORKING
-- [ ] Integrate all fixes into Hackaton repository
+- [x] Integrate all fixes into Hackaton repository - COMPLETED
